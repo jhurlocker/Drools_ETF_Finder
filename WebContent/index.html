@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<style>
+table, td  {
+  border: 1px solid grey;
+  border-collapse: collapse;
+  padding: 5px;
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: #ffffff;
+}
+td.heading  {
+  border: 1px solid grey;
+  border-collapse: collapse;
+  padding: 5px;
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: #f1f1f1;
+}
+th {
+  border: 1px solid grey;
+  border-collapse: collapse;
+  padding: 5px;
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: #7C151D;
+  color: #ffe6e6;
+}
+th.title {
+  font-size: 200%;
+  text-align: left;
+}
+button {
+font-weight: bold;
+    color: #7C151D;
+}
+</style>
+<script src= "http://ajax.googleapis.com/ajax/libs/angularjs/1.3.14/angular.min.js"></script>
+<body>
+
+<div ng-app="app" ng-controller="MainController"> 
+
+<table align="center"  width="80%">
+
+<tr>
+	<th class="title" colspan="2">
+		ETF Selector
+	</th>
+</tr>
+<tr>
+	<td>
+		<b>Age</b>
+	</td>
+	<td>
+		<input type="text" size="3" ng-model="selectedAge" ></input>
+	</td>
+</tr>
+<tr>
+	<td>
+		<b>Rating</b>
+	</td>
+	<td>
+      <select ng-model="selectedRating" >
+    	<option value=""></option>
+ 		<option value="1">*</option>
+ 		<option value="2">**</option>
+ 		<option value="3">***</option>
+ 		<option value="4">****</option>
+ 		<option value="5">*****</option>
+	  </select>	
+	</td>
+</tr>
+<tr>
+	<td>
+		<b>Risk</b>
+	</td>
+	<td>
+      <select ng-model="selectedRisk" >
+    	<option value=""></option>
+ 		<option value="1">*</option>
+ 		<option value="2">**</option>
+ 		<option value="3">***</option>
+ 		<option value="4">****</option>
+ 		<option value="5">*****</option>
+	  </select>	
+	</td>
+</tr>
+<tr>
+	<td>
+		<b>Expense</b>
+	</td>
+	<td>
+      <select ng-model="selectedExpense" >
+    	<option value=""></option>
+ 		<option value="low">Low</option>
+ 		<option value="medium">Medium</option>
+ 		<option value="high">High</option>
+	  </select>	
+	</td>
+</tr>
+<tr>
+	<td colspan="2">
+		<button type="submit" ng-click="searchETFs(selectedAge, selectedRating, selectedRisk, selectedExpense)">Search</button>
+	</td>
+</tr>		
+
+</table>
+<br/>
+
+<table align="center"  width="80%">
+
+<tr ng-if="selectedETFList.length > 0" bgcolor="93C5FF">
+	<th colspan="9" align="left">ETF(s) That Match Your Selections</th>
+</tr>
+<tr ng-if="selectedETFList.length > 0">
+	<td class="heading"><b>Symbol</b></td>
+	<td class="heading"><b>Name</b></td>
+	<td class="heading"><b>Category</b></td>
+	<td class="heading"><b>Asset Class</b></td>
+	<td class="heading"><b>Risk</b></td>
+	<td class="heading"><b>Return</b></td>
+	<td class="heading"><b>Overall Rating</b></td>
+	<td class="heading"><b>Expense</b></td>
+</tr>
+<tr ng-repeat="etf in selectedETFList">
+	<td>{{etf.symbol}}</td>
+	<td><a href="{{etf.link}}" target="_blank">{{etf.name}}</a></td>
+	<td>{{etf.category}}</td>
+	<td>{{etf.assetClass}}</td>
+	<td>{{starFunction(etf.riskRange)}}</td>
+	<td>{{starFunction(etf.returnRange)}}</td>
+	<td>{{starFunction(etf.rating)}}</td>
+	<td>{{etf.expenseRange}}</td>
+</tr>
+<tr ng-if="selectedETFList.length == 0">
+	<th colspan="9" align="left">ETF(s) That Match Your Selections</th>
+</tr>
+<tr ng-if="selectedETFList.length == 0">
+	<td colspan="9">0 ETFs matched your selection</td>
+</tr>
+<tr ng-if="ageGroupETFList.length > 0">
+	<td colspan="9">&nbsp;</td>
+</tr>
+<tr ng-if="ageGroupETFList.length > 0" bgcolor="93C5FF">
+	<th colspan="9" align="left">Recommended ETF(s) Based on Your Age Group</th>
+</tr>
+<tr ng-if="ageGroupETFList.length > 0">
+	<td class="heading"><b>Symbol</b></td>
+	<td class="heading"><b>Name</b></td>
+	<td class="heading"><b>Category</b></td>
+	<td class="heading"><b>Asset Class</b></td>
+	<td class="heading"><b>Risk</b></td>
+	<td class="heading"><b>Return</b></td>
+	<td class="heading"><b>Overall Rating</b></td>
+	<td class="heading"><b>Expense</b></td>
+</tr>
+<tr ng-repeat="etf in ageGroupETFList">
+	<td>{{etf.symbol}}</td>
+	<td><a href="{{etf.link}}" target="_blank">{{etf.name}}</a></td>
+	<td>{{etf.category}}</td>
+	<td>{{etf.assetClass}}</td>
+	<td>{{starFunction(etf.riskRange)}}</td>
+	<td>{{starFunction(etf.returnRange)}}</td>
+	<td>{{starFunction(etf.rating)}}</td>
+	<td>{{etf.expenseRange}}</td>
+</tr>
+</table>
+</div>
+
+<script>
+
+var app = angular.module('app', []);
+app.controller('MainController', function($scope, $http, $sce) {
+
+		//Setup default values
+		$scope.selectedAge = 28;
+		$scope.selectedRating = 4;
+		$scope.selectedExpense = 'low';
+		$scope.selectedRisk = 3;
+
+		//Return * instead of displaying the number value
+		$scope.starFunction = function(number){
+			var stars = "";
+			for (i = 0; i < number; i++){
+				stars += "*";	    
+			}
+			return stars;
+		}
+
+		//Get the ETF list based on the users selections and the ETF list for the users age group
+        $scope.searchETFs = function(selectedAge, selectedRating, selectedRisk, selectedExpense){
+              $http.get("/ETF_Finder/rservices/etfs/etfList/" + selectedAge + "/" + selectedRating + "/" + selectedRisk + "/" + selectedExpense)
+        	  .success(function (response) {
+            	  	$scope.selectedETFList = response.userSelectedETFList;
+            	  	$scope.ageGroupETFList = response.ageGroupETFList;
+            	  })
+
+          }          
+	});
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,206 @@
+package com.redhat.brms.ETFdemorules
+
+
+import java.util.ArrayList;
+import java.util.List;
+import com.redhat.brms.demo.etf.CriteriaSelection;
+import com.redhat.brms.demo.etf.ETF;
+import com.redhat.brms.demo.etf.ETFResults;
+import java.lang.Double;
+import java.lang.Integer;
+import org.kie.api.runtime.rule.QueryResults;
+import org.kie.api.runtime.rule.QueryResultsRow;
+
+//Holds data updated by rules
+declare ScratchPad
+	userType : String
+	upperExpenseRange : Double
+	lowerExpenseRange : Double
+	userSelectedETFList : ArrayList
+end
+
+function int riskRangeVarLess1 (int riskRangeVar){
+	int newRiskRange = riskRangeVar - 1;
+	System.out.println("NEW RISK RANGE= " + newRiskRange);
+	return newRiskRange;
+}
+
+//Determine the level of risk based on the users age
+//typically younger investors can take higher risks than older investors
+rule "AgeGroup"
+    when
+    	results : ETFResults()
+        cs : CriteriaSelection()
+        if (age >= 18 && age <=30) do[highRisk]
+        else if (age > 30 && age <=50) do[moderateRisk]
+        else if (age > 50) do [lowRisk]
+        else if (age < 18) break[notEligible]
+    then    	
+	then[highRisk]
+
+		ScratchPad scratchPad = new ScratchPad();
+    	insert(scratchPad);
+		modify(scratchPad){
+			setUserType("high");
+		};
+	then[moderateRisk]
+		ScratchPad scratchPad = new ScratchPad();
+    	insert(scratchPad);
+		modify(scratchPad){
+			setUserType("moderate");
+		};
+	then[lowRisk]
+		ScratchPad scratchPad = new ScratchPad();
+    	insert(scratchPad);
+		modify(scratchPad){
+			setUserType("low");
+		};
+	then[notEligible]
+		//Stopping rule execution since user is not of age
+		modify(results){
+			setEligible(false);
+		};
+		kcontext.getKieRuntime().halt();
+end
+
+//Set the high, medium, and low values of the ETF expense range
+rule "ExpenseRange"
+no-loop
+when
+	sp : ScratchPad()
+	cs : CriteriaSelection()
+then
+	if(cs.getSelectedExpense().equals("low")){
+		modify(sp){
+			setUpperExpenseRange(new Double(0.20)),
+			setLowerExpenseRange(new Double(0.0))
+		}
+	} else if(cs.getSelectedExpense().equals("medium")){
+		modify(sp){
+			setUpperExpenseRange(new Double(0.70)),
+			setLowerExpenseRange(new Double(0.20))
+		}
+	} else if(cs.getSelectedExpense().equals("high")){
+		modify(sp){
+			setUpperExpenseRange(new Double(2.00)),
+			setLowerExpenseRange(new Double(0.70))
+		}
+	}
+
+end
+
+//Get the list of ETFs based on the selected input from the user 
+//Include ETFs with a risk and rating equal to the user selected risk and rating.
+//Also, include ETFs with an expense that falls in the range defined in the ExpenseRange rule 
+rule "ETFListBySelection"
+when
+	sp : ScratchPad(userSelectedETFList == null)
+	cs : CriteriaSelection()	
+	etfList : ArrayList() from collect (
+		ETF(rating == cs.getSelectedRating() 
+			&& riskRange == cs.selectedRisk
+			&& expenseRange < sp.upperExpenseRange && expenseRange > sp.lowerExpenseRange)
+	)		
+then
+	for (int x = 0; x < etfList.size(); x++){
+		ETF etf = (ETF)etfList.get(x);
+	}
+	modify(sp){
+		setUserSelectedETFList(etfList);
+	};
+end
+
+//Get all of the ETFs for a given risk and rating
+//include ETFs with a risk level one less than the given riskRangeVar
+//include ETFs with a ratings level higher than the given ratingVar
+query "ETFListQuery" (Integer riskRangeVar, Integer ratingVar)
+	etf : ETF(riskRange in (riskRangeVar, riskRangeVar - 1), rating >= ratingVar)
+end
+//rating == ratingVar 
+
+//Get a list from the query of high risk ETFs based on age group determined in rule AgeGroup
+//So we don't display duplicates, remove the ETFs that are already in the
+//userSelectedETFList that was created in rule ETFListBySelection 
+rule "ETFListForHighRiskAge"
+when
+	results : ETFResults(userSelectedETFList == null, ageGroupETFList == null)
+	sp : ScratchPad(userSelectedETFList != null, userType == "high")
+then
+	QueryResults res = kcontext.getKieRuntime().getQueryResults("ETFListQuery", 4, 3 );
+	ArrayList highRiskETFList = new ArrayList();
+	for ( QueryResultsRow row : res ) {
+    	ETF etf = ( ETF ) row.get( "etf" );
+    	highRiskETFList.add(etf);
+	}
+
+    for (int x = 0; x < highRiskETFList.size(); x++){
+    	ETF etf = (ETF)highRiskETFList.get(x);
+    	if (sp.getUserSelectedETFList().contains(etf)){
+    		highRiskETFList.remove(x);
+    	}
+    }
+
+	modify(results){
+		setUserSelectedETFList(sp.getUserSelectedETFList()),
+		setAgeGroupETFList(highRiskETFList)
+	};
+end
+
+//Get a list from the query of moderate risk ETFs based on age group determined in rule AgeGroup
+//So we don't display duplicates, remove the ETFs that are already in the
+//userSelectedETFList that was created in rule ETFListBySelection 
+rule "ETFListForModerateRiskAge"
+when
+	results : ETFResults(userSelectedETFList == null, ageGroupETFList == null)
+	sp : ScratchPad(userSelectedETFList != null, userType == "moderate")
+then
+
+	QueryResults res = kcontext.getKieRuntime().getQueryResults("ETFListQuery", 3, 3 );
+	
+	ArrayList moderateRiskETFList = new ArrayList();
+	for ( QueryResultsRow row : res ) {
+    	ETF etf = ( ETF ) row.get( "etf" );
+    	moderateRiskETFList.add(etf);
+	}
+
+    for (int x = 0; x < moderateRiskETFList.size(); x++){
+    	ETF etf = (ETF)moderateRiskETFList.get(x);
+    	if (sp.getUserSelectedETFList().contains(etf)){
+    		moderateRiskETFList.remove(x);
+    	}
+    }
+
+	modify(results){
+		setUserSelectedETFList(sp.getUserSelectedETFList()),
+		setAgeGroupETFList(moderateRiskETFList)
+	};
+end
+
+//Get a list from the query of low risk ETFs based on age group determined in rule AgeGroup
+//So we don't display duplicates, remove the ETFs that are already in the
+//userSelectedETFList that was created in rule ETFListBySelection 
+rule "ETFListForLowRiskAge"
+when
+	results : ETFResults(userSelectedETFList == null, ageGroupETFList == null)
+	sp : ScratchPad(userSelectedETFList != null, userType == "low")
+then
+	QueryResults res = kcontext.getKieRuntime().getQueryResults("ETFListQuery", 2, 3 );
+
+	ArrayList lowRiskETFList = new ArrayList();
+	for ( QueryResultsRow row : res ) {
+    	ETF etf = ( ETF ) row.get( "etf" );
+    	lowRiskETFList.add(etf);
+	}
+
+    for (int x = 0; x < lowRiskETFList.size(); x++){
+    	ETF etf = (ETF)lowRiskETFList.get(x);
+    	if (sp.getUserSelectedETFList().contains(etf)){
+    		lowRiskETFList.remove(x);
+    	}
+    }
+
+	modify(results){
+		setUserSelectedETFList(sp.getUserSelectedETFList()),
+		setAgeGroupETFList(lowRiskETFList)
+	};
+end
