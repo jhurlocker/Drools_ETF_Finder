@@ -19,12 +19,6 @@ declare ScratchPad
 	userSelectedETFList : ArrayList
 end
 
-function int riskRangeVarLess1 (int riskRangeVar){
-	int newRiskRange = riskRangeVar - 1;
-	System.out.println("NEW RISK RANGE= " + newRiskRange);
-	return newRiskRange;
-}
-
 //Determine the level of risk based on the users age
 //typically younger investors can take higher risks than older investors
 rule "AgeGroup"
@@ -102,9 +96,6 @@ when
 			&& expenseRange < sp.upperExpenseRange && expenseRange > sp.lowerExpenseRange)
 	)		
 then
-	for (int x = 0; x < etfList.size(); x++){
-		ETF etf = (ETF)etfList.get(x);
-	}
 	modify(sp){
 		setUserSelectedETFList(etfList);
 	};
