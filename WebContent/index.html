@@ -119,7 +119,7 @@ font-weight: bold;
 	<td class="heading"><b>Overall Rating</b></td>
 	<td class="heading"><b>Expense</b></td>
 </tr>
-<tr ng-repeat="etf in selectedETFList">
+<tr ng-repeat="etf in selectedETFList | orderBy:'-rating'">
 	<td>{{etf.symbol}}</td>
 	<td><a href="{{etf.link}}" target="_blank">{{etf.name}}</a></td>
 	<td>{{etf.category}}</td>
@@ -151,7 +151,7 @@ font-weight: bold;
 	<td class="heading"><b>Overall Rating</b></td>
 	<td class="heading"><b>Expense</b></td>
 </tr>
-<tr ng-repeat="etf in ageGroupETFList">
+<tr ng-repeat="etf in ageGroupETFList | orderBy:'-rating'">
 	<td>{{etf.symbol}}</td>
 	<td><a href="{{etf.link}}" target="_blank">{{etf.name}}</a></td>
 	<td>{{etf.category}}</td>
